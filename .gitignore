@@ -1,0 +1,185 @@
+# =============================================================================
+# Quarto project
+# =============================================================================
+
+# Quarto internal project state
+/.quarto/
+
+# Rendered website/book outputs
+/_site/
+/_book/
+
+# If your _quarto.yml uses a custom output-dir, add it here too:
+# /docs/
+# /public/
+
+# Single-document render outputs and support folders
+*_files/
+*.html
+*.pdf
+*.docx
+*.pptx
+*.tex
+*.log
+*.aux
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Quarto local/private config
+_quarto.yml.local
+*.local
+
+# IMPORTANT: usually DO NOT ignore these:
+# _extensions/   # Quarto extensions should be committed
+# _freeze/       # commit if using execute: freeze / freeze: auto
+
+
+# =============================================================================
+# Python
+# =============================================================================
+
+# Bytecode / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.conda/
+conda-meta/
+
+# PEP 582
+__pypackages__/
+
+# Build / packaging
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Type checkers / linters
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter / notebooks
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# Python REPL / tools
+.python-version
+
+
+# =============================================================================
+# Environment variables / secrets
+# =============================================================================
+
+.env
+.env.*
+!.env.example
+!.env.template
+
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+config.local.*
+
+
+# =============================================================================
+# VS Code / Cursor / editors
+# =============================================================================
+
+# Keep shared workspace recommendations/settings if you want team consistency
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Cursor
+.cursor/
+
+# JetBrains / PyCharm
+.idea/
+
+# Sublime / misc editors
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+
+
+# =============================================================================
+# OS generated files
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+
+# =============================================================================
+# Logs / temporary files
+# =============================================================================
+
+*.log
+logs/
+tmp/
+temp/
+.cache/
+.cache-*/

@@ -1,0 +1,44 @@
+---
+title: "Unity Runner"
+filters:
+  - unity-runner
+---
+
+## Check Connection
+
+```{.unity title="Status"}
+unity-cli status
+```
+
+## Enter Play Mode
+
+```{.unity title="Play Mode"}
+unity-cli editor play --wait
+```
+
+## Execute C# Inside Unity
+
+```{.cs .unity title="Application Data Path"}
+return Application.dataPath;
+```
+
+```{.cs .unity title="List Scene Objects"}
+var objects = GameObject.FindObjectsOfType<GameObject>();
+foreach (var obj in objects) Debug.Log(obj.name);
+return objects.Length + " objects found";
+```
+
+## Console Logs
+
+```{.unity title="Read Logs"}
+unity-cli console --type error,warning,log
+```
+
+## Multi-Command Sequences
+
+```{.unity title="Build & Run"}
+echo "Starting build pipeline..."
+unity-cli editor play --wait
+unity-cli exec "Debug.Log(\"Build complete at \" + System.DateTime.Now);"
+unity-cli console --type log
+```

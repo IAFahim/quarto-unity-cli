@@ -183,3 +183,5 @@ tmp/
 temp/
 .cache/
 .cache-*/
+
+/.luarc.json

@@ -1,0 +1,91 @@
+---
+title: "Jobs"
+---
+
+The job safety system reports races as type errors that read like nonsense until
+you know the shape. Each gotcha here is a race the safety system caught, with the
+form that makes it safe.
+
+## Parallel scheduling needs IJobFor
+
+Under Unity 6, `ScheduleParallel()` requires {{< unity-type IJobFor >}}.
+`IJobParallelFor` does not extend it. Use `IJobFor` for all parallel jobs.
+
+## Cross-job type tracking loss
+
+An `IJobEntity` source-generates a `ComponentTypeHandle<T>` for every `ref` and
+`in` parameter. When a non-`IJobEntity` job overwrites `state.Dependency`, the
+safety system reports type `T` "not assigned to Dependency." The fix is to stop
+using the tracked handle and use an unsafe lookup.
+
+```{.wrong}
+partial struct Move : IJobEntity {
+    public ComponentLookup<Velocity> Vel;
+    void Execute(ref Position p, in Entity e) { p.Value += Vel[e].Value; }
+}
+```
+
+```{.right}
+partial struct Move : IJobEntity {
+    public BovineLabs.Core.Iterators.UnsafeComponentLookup<Velocity> Vel;
+    void Execute(ref Position p, in Entity e) { p.Value += Vel[e].Value; }
+}
+```
+
+## The aliasing trap
+
+A `ref T` parameter and a `ComponentLookup<T>` field on the *same* `IJobEntity`
+throw `two containers may not be the same`. Either drop the manual lookup and use
+only parameters, or switch to {{< unity-type UnsafeComponentLookup >}}.
+
+## Parallel buffer writes
+
+`BufferLookup<T>` does not support parallel writing. Use
+{{< unity-type UnsafeBufferLookup >}} with `[NativeDisableParallelForRestriction]`.
+
+::: {.gotcha title="Instance NativeList fields are shared across invocations"}
+An instance `NativeList` or `NativeArray` field on a parallel job is one
+container shared by every parallel invocation — a data race. Allocate inside
+`Execute` with `Allocator.Temp`, which is thread-local and fast.
+:::
+
+```{.right}
+public void Execute(int index) {
+    var local = new Unity.Collections.NativeList<int>(8, Unity.Collections.Allocator.Temp);
+    local.Dispose();
+}
+```
+
+## SetComponentEnabled in parallel
+
+`SetComponentEnabled` flips a chunk-level bitmask; two entities in the same chunk
+race. Record the change through an {{< unity-type EntityCommandBuffer >}}
+`ParallelWriter` instead, keyed by `entryIndex` — never `jobIndex`, which can
+overlap across threads.
+
+## Recursion is not supported in Burst
+
+Rewrite recursion as an iterative walk over an explicit stack.
+
+```{.right}
+var stack = new Unity.Collections.NativeList<Entity>(8, Unity.Collections.Allocator.Temp);
+stack.Add(root);
+while (stack.Length > 0) {
+    var current = stack[stack.Length - 1];
+    stack.RemoveAtSwapBack(stack.Length - 1);
+    Process(current);
+}
+stack.Dispose();
+```
+
+## Reading a singleton after scheduling its writer
+
+`GetSingleton<T>()` on the main thread races with a job still writing `T`.
+Complete the dependency before any main-thread component read. The same applies
+to `SetComponent` after a `map.Build(...)` and to clearing a collection a prior
+job still reads.
+
+```{.right}
+state.Dependency.Complete();
+var data = SystemAPI.GetSingleton<Config>();
+```

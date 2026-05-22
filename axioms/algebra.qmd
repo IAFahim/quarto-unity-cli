@@ -1,0 +1,92 @@
+---
+title: "The Algebra"
+---
+
+The codex names three primitives. This chapter types them precisely and states
+the laws that make compositions safe.
+
+## Typing the primitives
+
+Let `World` be the live Editor state — open scenes, the entity worlds, the
+console, compile status.
+
+```{.right lang="text"}
+Inspect : World -> Observation
+Mutate  : World -> World
+Verify  : World -> Observation -> Bool
+```
+
+`Inspect` is a pure projection of the world into an observation. It is
+referentially transparent: two consecutive inspects with no intervening mutate
+yield the same observation. This is why inspection is always safe to repeat and
+always the first move.
+
+`Mutate` is the only primitive that changes the world. It is the only source of
+risk, so it carries the heaviest obligation: it must be bracketed by inspection
+before and verification after.
+
+`Verify` is total — it is defined for every world and returns a decision, never
+a maybe. A verify that cannot decide is not a verify; it is another inspect
+wearing a verify's hat.
+
+## The bracket law
+
+::: {.axiom title="Mutation is always bracketed"}
+`Inspect ∘ Mutate ∘ Verify`. Any `Mutate` not preceded by an `Inspect` of its
+target and followed by a `Verify` of its effect is undefined behavior.
+:::
+
+The bracket is not ceremony. Inspection before mutation answers *can this
+mutation even apply* — does the target exist, is it in the parent scene or the
+subscene, am I in play mode where the structural change is illegal.
+Verification after mutation answers *did it apply* — not *did the command
+return without error*.
+
+::: {.gotcha title="A returning command is not a verified effect"}
+`unity-cli editor refresh --compile` can return `connection closed before
+response` while it is still recompiling. The command "completed"; nothing is
+verified. Treat it as inconclusive and re-inspect compile state with a minimal
+`exec`.
+:::
+
+## Idempotence where state must exist
+
+When a mutation creates something that should exist exactly once — a marker
+object, a SubScene, a singleton — make the mutation idempotent: inspect for the
+existing instance and reuse it, rather than creating a second.
+
+```{.exec name="Idempotent marker creation"}
+var scene = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene();
+var roots = scene.GetRootGameObjects();
+var i = 0;
+while (i < roots.Length) {
+    if (roots[i].name == "Marker") return "reused existing Marker";
+    i++;
+}
+var go = new UnityEngine.GameObject("Marker");
+return "created Marker";
+```
+
+Run it twice; the world ends in the same state. That is the property that lets
+you re-run a recipe after a partial failure without accumulating garbage.
+
+## Determinism over convenience
+
+Inspection chooses `while` with an explicit index over `foreach` not from
+taste but because the SKILL has observed `foreach` failing inside `exec`. The
+deterministic form is the one that always parses, always disposes, always
+reads the same way to the next person. When two forms are equivalent, the
+codex keeps the one with fewer ways to be wrong.
+
+```{.wrong}
+foreach (var e in query.ToEntityArray(Allocator.Temp)) { Use(e); }
+```
+
+```{.right}
+var arr = query.ToEntityArray(Allocator.Temp);
+for (var i = 0; i < arr.Length; i++) { Use(arr[i]); }
+arr.Dispose();
+```
+
+The right form is longer and that is the point: the allocation is named, owned,
+and disposed. Nothing leaks because nothing is implicit.

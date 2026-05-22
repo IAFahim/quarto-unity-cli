@@ -1,0 +1,81 @@
+---
+title: "exec"
+---
+
+`exec` is the universal primitive: it runs C# inside the live Editor and returns
+a value. Everything else — scene inspection, entity queries, mutation — is `exec`
+specialized. Because it is universal, its discipline matters most.
+
+## Totality: always return
+
+An `exec` that does not return tells you nothing, and "nothing" is
+indistinguishable from "silently failed." The behavior layer marks any `exec`
+block without a `return` as **partial** and warns at render time. Make every
+`exec` total.
+
+```{.exec name="Count cameras"}
+return UnityEngine.Object.FindObjectsOfType<UnityEngine.Camera>().Length;
+```
+
+## stdin for anything non-trivial
+
+Trivial reads can go inline. Anything with quotes, interpolation, generics,
+lambdas, namespaces, LINQ, or multiple statements goes through a named heredoc
+on stdin. The delimiter is `'CSHARP'`, quoted, so bash does not expand the body.
+
+```{.cli name="The heredoc form"}
+cat << 'CSHARP' | unity-cli exec
+var go = new UnityEngine.GameObject("Marker");
+return go.name;
+CSHARP
+```
+
+Piped code does not support `using` statements in the body. Bring namespaces in
+with the `--usings` flag instead.
+
+```{.exec name="Query with explicit usings" usings="Unity.Entities,Unity.Mathematics"}
+var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+var q = em.CreateEntityQuery(typeof(LocalTransform));
+return "entities with LocalTransform: " + q.CalculateEntityCount();
+```
+
+## while over foreach
+
+`foreach` works in `exec` until it does not, and when it fails the error is
+opaque. The codex uses `while` with an explicit index everywhere it iterates,
+because the deterministic form always parses and reads the same way.
+
+```{.exec name="Enumerate roots deterministically"}
+var roots = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().GetRootGameObjects();
+var sb = new System.Text.StringBuilder();
+var i = 0;
+while (i < roots.Length) {
+    sb.AppendLine($"[{i}] {roots[i].name} (children: {roots[i].transform.childCount})");
+    i++;
+}
+return sb.ToString();
+```
+
+## Assembly visibility
+
+If `exec` fails with a `TypeLoadException` for a type you know exists, the
+assembly is not loaded or is gated behind a define constraint. Inspect the
+`asmdef` for `defineConstraints`, confirm the assembly is built, and force a
+recompile.
+
+```{.cli name="Force the assembly to load"}
+unity-cli editor refresh --force --compile
+```
+
+::: {.gotcha title="Refresh may return before it is done"}
+A compile-triggering refresh can close the connection before responding. That
+is not success and not failure — it is inconclusive. Reconnect with a minimal
+total `exec` and read the compile state directly.
+:::
+
+```{.exec name="Reconnect probe"}
+return 42;
+```
+
+If that returns `42`, the connection is back and compilation has settled enough
+to evaluate. Now re-run your real query.

@@ -1,0 +1,59 @@
+project:
+  type: book
+  output-dir: _site
+
+filters:
+  - unity-cli
+
+unity-cli-version: "0.3.19"
+
+book:
+  title: "Unity-CLI Codex"
+  subtitle: "An algebra for driving the Unity Editor from the command line"
+  author: "quarto-unity-cli"
+  search: true
+  reader-mode: true
+  page-navigation: true
+  sidebar:
+    style: docked
+    collapse-level: 1
+  chapters:
+    - index.qmd
+    - part: "Axioms"
+      chapters:
+        - axioms/algebra.qmd
+        - axioms/discipline.qmd
+    - part: "Primitives"
+      chapters:
+        - primitives/exec.qmd
+        - primitives/scene.qmd
+        - primitives/verify.qmd
+    - part: "Composition"
+      chapters:
+        - composition/dots.qmd
+        - composition/jobs.qmd
+        - composition/baking.qmd
+        - composition/lookups.qmd
+    - part: "Reference"
+      chapters:
+        - reference/dead-apis.qmd
+        - reference/glossary.qmd
+    - part: "Recipes"
+      chapters:
+        - recipes/runner.qmd
+
+format:
+  html:
+    theme:
+      - theme/theme-dark.scss
+      - theme/components.scss
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    code-overflow: scroll
+    highlight-style: github-dark
+    include-in-header:
+      text: |
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">

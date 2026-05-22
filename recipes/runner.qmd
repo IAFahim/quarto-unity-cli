@@ -1,0 +1,74 @@
+---
+title: "Recipes"
+---
+
+A recipe is a full bracket for one real task: inspect the relevant state, mutate
+once, verify the named effect. Each recipe below is copy-paste ready and
+deterministic — it does not assume the editor is in any particular state, it
+inspects to find out.
+
+Pinned to `unity-cli` **v{{< unity-version >}}**.
+
+## Place a primitive at the origin
+
+```{.cli name="Inspect: does it already exist?"}
+echo 'var go = UnityEngine.GameObject.Find("Cube"); return go != null ? "exists" : "absent";' | unity-cli exec
+```
+
+```{.exec name="Mutate: create idempotently"}
+var existing = UnityEngine.GameObject.Find("Cube");
+if (existing != null) return "reused Cube";
+var go = UnityEngine.GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube);
+go.name = "Cube";
+go.transform.position = UnityEngine.Vector3.zero;
+return "created Cube";
+```
+
+```{.cli name="Verify: it exists at the expected place"}
+echo 'var go = UnityEngine.GameObject.Find("Cube"); return go != null ? go.transform.position.ToString() : "FAIL";' | unity-cli exec
+```
+
+## Confirm a subscene bakes to entities
+
+```{.cli name="Inspect: console clean, find the SubScene"}
+unity-cli console --type error
+echo 'var r = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().GetRootGameObjects(); var i = 0; while (i < r.Length) { if (r[i].GetComponent<Unity.Scenes.SubScene>() != null) return r[i].name; i++; } return "no SubScene";' | unity-cli exec
+```
+
+```{.cli name="Mutate: enter play so baking runs"}
+unity-cli console --clear
+unity-cli editor play
+```
+
+```{.exec name="Verify: the baked entity count is non-zero" usings="Unity.Entities"}
+var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+var q = em.CreateEntityQuery(typeof(LocalToWorld));
+var n = q.CalculateEntityCount();
+return n > 0 ? $"OK: {n} baked entities" : "FAIL: zero entities, baking did not run";
+```
+
+## Apply a code change safely
+
+```{.cli name="The full edit cycle"}
+unity-cli editor refresh --force --compile
+echo 'return 42;' | unity-cli exec
+unity-cli console --type error
+unity-cli console --clear
+unity-cli editor play
+unity-cli console --type error
+```
+
+::: {.verify title="A recipe is done when its last line is green"}
+The cube prints a position, the subscene prints a positive count, the edit cycle
+prints a clean console at both ends. If the last verify is anything else, the
+task is not done — re-inspect and find which primitive was used out of order.
+:::
+
+## On live execution
+
+This page renders deterministically: the commands are shown, not run, so the
+output does not depend on whether the editor happens to be open. Execution is an
+explicit effect you perform in your shell, not a side effect of rendering. If
+you want live execution inside the document, add a `knitr` engine and `bash`
+cells — but keep the rendered codex pure, because a build that behaves
+differently depending on editor state is not a build you can trust.

@@ -1,0 +1,74 @@
+---
+title: "Verify"
+---
+
+`Verify` is the primitive that decides whether a task is done. It is total: it
+returns a green or a red, never a shrug. This chapter is the canonical verify
+sequence and the reporting shape that surfaces its result honestly.
+
+## The standard sequence
+
+After any code change, the verification is fixed and ordered. Each step is an
+inspect or a verify; the only mutation is entering play mode.
+
+```{.cli name="Standard verify sequence"}
+unity-cli editor refresh --force --compile
+echo 'return 42;' | unity-cli exec
+unity-cli console --type error
+unity-cli console --clear
+unity-cli editor play
+echo 'return UnityEngine.Time.time;' | unity-cli exec
+unity-cli console --type error
+```
+
+The reconnect probe after refresh exists because refresh can return
+inconclusively. The two `console --type error` reads bracket play mode: clean
+before, clean after. A red console at either end means not done.
+
+::: {.failure title="Never use --wait on play with a possible compile error"}
+A compile error stalls a waited play-mode entry indefinitely. Enter play
+without waiting, then verify runtime state with a separate `exec`.
+:::
+
+## Verify the specific effect
+
+A clean console is necessary, not sufficient. The task's actual effect must be
+verified by name. For ECS work that almost always means an entity count.
+
+```{.exec name="Verify baking produced entities" usings="Unity.Entities"}
+var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+var q = em.CreateEntityQuery(typeof(LocalToWorld));
+var n = q.CalculateEntityCount();
+return n > 0 ? $"OK: {n} entities" : "FAIL: zero entities";
+```
+
+::: {.verify title="The green that counts"}
+The query returns a positive count. This is the verify that closes the bracket
+for a baking task — not "the command returned," not "the console is clean,"
+but the named effect, measured.
+:::
+
+## Reporting
+
+Report in a fixed order so a reader can audit the claim, not just trust it.
+
+::: {.axiom title="The reporting order"}
+1. what was inspected
+2. what was changed
+3. compilation result
+4. direct verification result
+5. remaining blocker, if any
+:::
+
+Never compress these into a vague success statement. "Working now" hides which
+of the five was actually checked. The five-line report is longer and that is the
+point: it is falsifiable. A stranger can re-run step four and see the same green.
+
+## The anti-patterns verify exists to catch
+
+| Disguise | Why it is red | The real verify |
+|---|---|---|
+| Manual entity creation | proves nothing about baking | query the baked entities |
+| A passing test wrapping a stub | tests the stub, not the system | run the system, count the effect |
+| `connection closed` read as success | inconclusive, not done | reconnect probe, then re-query |
+| Listing `world.Systems` for an `ISystem` | unmanaged systems are absent | verify by query effect |

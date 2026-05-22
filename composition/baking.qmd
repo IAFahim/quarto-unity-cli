@@ -1,0 +1,82 @@
+---
+title: "Baking & Entity References"
+---
+
+Baking remaps the `Entity` references it can see. The rule that prevents the
+hardest class of bug is knowing exactly which references it can see and which it
+cannot.
+
+## What gets remapped
+
+| Container | Entity fields remapped? |
+|---|---|
+| {{< unity-type IComponentData >}} with `Entity` fields | yes |
+| `DynamicBuffer<`{{< unity-type IBufferElementData >}}`>` with `Entity` fields | yes |
+| `BlobAssetReference` with `Entity` fields | no |
+| {{< unity-type IDynamicHashMap >}}`<K, Entity>` | no |
+
+::: {.axiom title="Remapping follows reflection"}
+The TypeManager remaps `Entity` fields it can find by reflection. Entities
+buried in opaque byte storage — blobs, dynamic hash map values — are invisible
+to it and survive baking as stale indices.
+:::
+
+## The dynamic hash map trap
+
+`IDynamicHashMap<ushort, Entity>` stores its entity values in opaque buffer
+bytes. After baking, every value is a stale baking-time index. The symptom is
+precise and recognizable.
+
+::: {.failure title="TryGetValue true, Exists false, Version 1"}
+`TryGetValue` returns `true`, but `EntityManager.Exists` on the returned entity
+is `false`, and every stale entity reports `Version=1`. That is unremapped
+entity storage, not a logic bug.
+:::
+
+```{.exec name="Detect stale entity references" usings="Unity.Entities,BovineLabs.Core.Iterators"}
+var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+var q = em.CreateEntityQuery(typeof(EntityLinkSource));
+var entities = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+var report = "no links found";
+var i = 0;
+while (i < entities.Length) {
+    if (em.HasBuffer<EntityLink>(entities[i])) {
+        var map = em.GetBuffer<EntityLink>(entities[i]).AsHashMap<EntityLink, ushort, Entity>();
+        if (map.TryGetValue(0, out var target)) {
+            report = $"key 0 -> exists={em.Exists(target)} version={target.Version}";
+            break;
+        }
+    }
+    i++;
+}
+entities.Dispose();
+return report;
+```
+
+## The three fixes
+
+The fixes trade complexity for visibility. Prefer the one that makes the entity
+references visible to remapping rather than the one that patches around the
+invisibility.
+
+1. **Baking system re-resolve.** A `BakingSystem` that runs after all bakers
+   re-resolves the entities and writes valid references back into the map.
+2. **Companion buffer.** Keep a `DynamicBuffer<T>` with explicit `Entity` fields
+   alongside the map. The buffer is remapped automatically; rebuild the map from
+   it at runtime.
+3. **Replace the map.** Use a plain `DynamicBuffer<T : IBufferElementData>` with
+   `ushort Key; Entity Value;` fields. Lookup is O(n), but remapping works
+   because the fields are visible.
+
+## After a baking fix, the baker must re-run
+
+A baking change is not verified until the baker re-runs, which means stopping and
+re-entering play mode. Then verify the references resolve.
+
+```{.cli name="Re-bake and verify"}
+unity-cli editor stop
+unity-cli editor refresh --force --compile
+unity-cli console --clear
+unity-cli editor play
+echo 'var em = World.DefaultGameObjectInjectionWorld.EntityManager; var q = em.CreateEntityQuery(typeof(BovineLabs.Timeline.EntityLinks.Data.EntityLinkSource)); return q.CalculateEntityCount();' | unity-cli exec
+```

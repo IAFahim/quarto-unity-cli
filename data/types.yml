@@ -1,0 +1,72 @@
+types:
+  - name: LocalTransform
+    assembly: Unity.Entities
+    status: live
+    summary: Entity local-space position, rotation, and uniform scale. The single source of transform truth in modern Entities.
+  - name: LocalToWorld
+    assembly: Unity.Entities
+    status: live
+    summary: World-space float4x4 produced by the transform system. Read for rendering and world queries.
+  - name: Parent
+    assembly: Unity.Entities
+    status: live
+    summary: Reference to a parent entity. Hierarchy edge replacing the old LocalToParent component.
+  - name: PostTransformMatrix
+    assembly: Unity.Entities
+    status: live
+    summary: Baked diagonal scale matrix applied after LocalTransform. Compounds with parent scale chains on reparent.
+  - name: LocalToParent
+    assembly: Unity.Entities
+    status: dead
+    replacement: Parent, LocalTransform, LocalToWorld
+    summary: Removed in modern Entities. Express hierarchy with Parent plus LocalTransform.
+  - name: IComponentData
+    assembly: Unity.Entities
+    status: live
+    summary: Unmanaged value-type component. Entity fields are remapped automatically during baking.
+  - name: IBufferElementData
+    assembly: Unity.Entities
+    status: live
+    summary: Element of a DynamicBuffer. Entity fields are remapped automatically during baking.
+  - name: IEnableableComponent
+    assembly: Unity.Entities
+    status: live
+    summary: Component whose presence and enabled state are distinct. Drives the WithAll vs WithPresent vs WithDisabled distinction.
+  - name: ISystem
+    assembly: Unity.Entities
+    status: live
+    summary: Unmanaged system struct. Absent from world.Systems enumeration; verify by query effect, not by listing systems.
+  - name: EntityCommandBuffer
+    assembly: Unity.Entities
+    status: live
+    summary: Deferred structural-change recorder. ParallelWriter form is the safe path for per-entity writes inside parallel jobs.
+  - name: UnsafeComponentLookup
+    assembly: BovineLabs.Core.Iterators
+    status: live
+    summary: Aliasing-free component access for parallel jobs. No GetRefRW; read-modify-write via indexer. Constructed through the SystemState extension.
+  - name: UnsafeBufferLookup
+    assembly: BovineLabs.Core.Iterators
+    status: live
+    summary: Parallel-write-capable buffer access used with NativeDisableParallelForRestriction.
+  - name: IJobFor
+    assembly: Unity.Jobs
+    status: live
+    summary: Required interface for ScheduleParallel under Unity 6. IJobParallelFor does not extend it.
+  - name: IDynamicHashMap
+    assembly: BovineLabs.Core.Iterators
+    status: live
+    summary: Hash map stored in opaque buffer bytes. Entity values inside are invisible to TypeManager and are not remapped during baking.
+  - name: SubScene
+    assembly: Unity.Scenes
+    status: live
+    summary: Component on a parent-scene GameObject pointing at a subscene asset whose authoring GameObjects bake into entities.
+  - name: GetBuiltinMaterial
+    assembly: UnityEngine
+    status: dead
+    replacement: new Material(Shader.Find("Standard"))
+    summary: Never existed as called. Construct materials from a found shader instead.
+  - name: ExtractLocalTransform
+    assembly: Unity.Mathematics
+    status: dead
+    replacement: LocalTransform.FromMatrix(matrix)
+    summary: No such float4x4 method. Decompose a matrix with LocalTransform.FromMatrix.

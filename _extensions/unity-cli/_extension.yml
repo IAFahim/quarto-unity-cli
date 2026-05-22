@@ -1,0 +1,9 @@
+title: Unity CLI Primitives
+author: quarto-unity-cli
+version: 1.0.0
+quarto-required: ">=1.4.0"
+contributes:
+  shortcodes:
+    - shortcodes.lua
+  filters:
+    - primitives.lua

@@ -1,0 +1,84 @@
+---
+title: "Discipline"
+---
+
+The directives in the SKILL are not style. Each one closes a specific way the
+algebra breaks. Here they are stated as laws with the failure they prevent.
+
+## Smallest action first
+
+::: {.axiom title="Use the smallest action that falsifies the assumption"}
+Before building anything, find the one-line `exec` or `console` read that proves
+or disproves what you believe. Inspection is cheap; rework is not.
+:::
+
+Before writing mesh or material code, ask whether Unity has a one-liner. It
+almost always does.
+
+```{.exec name="A primitive cube, the whole way"}
+var go = UnityEngine.GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube);
+go.name = "Cube";
+go.transform.position = UnityEngine.Vector3.zero;
+return "created: " + go.name;
+```
+
+`CreatePrimitive` already attaches a MeshFilter, a MeshRenderer with a default
+material, and a collider. Hand-building that geometry is a larger, more
+fallible mutation that earns nothing.
+
+## No speculative APIs
+
+::: {.failure title="Two failed guesses means stop guessing"}
+If a guessed type or method fails once, probe the assembly. If a
+material or mesh API fails twice on an unknown surface, stop and look up the
+correct API from first principles. A third guess is how corruption happens.
+:::
+
+The dead-API table in the [Reference](../reference/dead-apis.qmd) exists because
+these guesses were made and recorded so they need never be made again.
+
+## One minimal fix per cycle
+
+A cycle is: apply one fix, compile, verify. Stacking two fixes before a compile
+means a red console cannot tell you which fix was wrong. The bracket law applies
+to your edits as much as to the editor's state.
+
+```{.cli name="One cycle"}
+unity-cli editor refresh --compile
+unity-cli console --type error
+```
+
+If the console is red, you changed exactly one thing and you know which.
+
+## Shell quoting is part of the contract
+
+Any non-trivial C# — quotes, interpolation, generics, lambdas, LINQ, multiple
+statements — goes through stdin with a named heredoc, never inline. Inline
+quoting produces fake failures that look like Unity errors but are really shell
+errors.
+
+```{.wrong lang="bash"}
+unity-cli exec "var c = Camera.main; if (c != null) { return 'done'; }"
+```
+
+```{.right lang="bash"}
+echo 'var c = Camera.main; return c != null ? "found" : "none";' | unity-cli exec
+```
+
+The single quotes in the wrong form are not valid C# string delimiters, and the
+shell mangles the rest. The right form uses stdin so the C# is C# and the shell
+stays out of it.
+
+## Success must be measured
+
+::: {.axiom title="Done means a green check, named and shown"}
+A task is done only when its effect is directly verified: the object exists at
+the path, the compile succeeded, the entity query returns the expected count.
+Never claim done while a critical check is red, and never hide a red check
+behind a vaguer green one.
+:::
+
+The [Reporting](../primitives/verify.qmd) discipline gives the shape: what was
+inspected, what was changed, the compile result, the verification result, and
+the remaining blocker if any — in that order, never compressed into a vague
+success.

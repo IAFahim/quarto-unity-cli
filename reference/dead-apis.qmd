@@ -1,0 +1,41 @@
+---
+title: "Dead APIs"
+---
+
+These were tried, failed, and recorded so the guess is never made twice. When
+a material or mesh API fails on an unknown surface, consult this table before
+guessing again.
+
+| Tried | Why it fails | Use instead |
+|---|---|---|
+| `Material.GetBuiltinMaterial(...)` | does not exist | `new Material(Shader.Find("Standard"))` |
+| `material.mainColor` | removed in Unity 5 | `material.color` |
+| `new Material(null)` | ambiguous, compile error | `new Material(Shader.Find("Standard"))` |
+| {{< unity-type LocalToParent >}} | removed in modern Entities | {{< unity-type Parent >}}, {{< unity-type LocalTransform >}}, {{< unity-type LocalToWorld >}} |
+| `float4x4.ExtractLocalTransform()` | does not exist | `LocalTransform.FromMatrix(matrix)` |
+
+::: {.failure title="The recovery rule"}
+If a material or mesh creation fails twice on an unknown API, stop. Do not write
+a third guess. Look up the correct API from first principles, then add the dead
+one to this table so it dies once.
+:::
+
+## The correct material idioms
+
+```{.right}
+var mat = new UnityEngine.Material(UnityEngine.Shader.Find("Standard"));
+mat.color = new UnityEngine.Color(1f, 0.5f, 0f);
+```
+
+```{.exec name="Load an existing material and assign it"}
+var go = UnityEngine.GameObject.Find("Cube");
+var mat = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Material>("Assets/Materials/MyMat.mat");
+if (mat != null && go != null) go.GetComponent<UnityEngine.Renderer>().material = mat;
+return mat != null ? "assigned" : "material not found";
+```
+
+## Why a one-liner beats hand-built geometry
+
+The dead-API list is shorter than it would be because the codex reaches for
+`CreatePrimitive` before building meshes by hand. The fewer APIs a mutation
+touches, the fewer ways it has to be dead.

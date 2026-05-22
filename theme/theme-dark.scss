@@ -1,0 +1,125 @@
+/*-- scss:defaults --*/
+
+$u-bg:        #0b0d11;
+$u-surface:   #14171e;
+$u-surface-2: #1b1f28;
+$u-border:    #262b36;
+$u-text:      #ced4e0;
+$u-muted:     #828b9c;
+
+$u-inspect:   #34d3c0;
+$u-mutate:    #e6a44d;
+$u-verify:    #5fcf80;
+$u-fail:      #e25871;
+$u-axiom:     #7aa2f7;
+
+$font-family-sans-serif: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+$font-family-monospace:  "IBM Plex Mono", ui-monospace, monospace;
+$headings-font-family:   "IBM Plex Mono", ui-monospace, monospace;
+
+$body-bg:    $u-bg;
+$body-color: $u-text;
+
+$link-color:       $u-inspect;
+$link-hover-color: #5fe0d2;
+$link-decoration:  none;
+
+$border-color: $u-border;
+
+$code-color: $u-inspect;
+$code-bg:    rgba($u-inspect, 0.07);
+
+$headings-font-weight: 600;
+$headings-color:       #eef1f6;
+
+$table-border-color: $u-border;
+
+$navbar-bg: $u-surface;
+$sidebar-bg: $u-bg;
+
+/*-- scss:rules --*/
+
+body {
+  letter-spacing: 0.1px;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.3px;
+}
+
+h1 { font-weight: 700; }
+
+h2 {
+  border-bottom: 1px solid $u-border;
+  padding-bottom: 0.35rem;
+  margin-top: 2.6rem;
+}
+
+.sidebar-title {
+  color: $u-inspect;
+  font-family: $font-family-monospace;
+}
+
+a.sidebar-item-text:hover,
+.sidebar-item-text:hover {
+  color: $u-inspect;
+}
+
+div.sidebar-item-container .active {
+  color: $u-inspect;
+  font-weight: 600;
+}
+
+pre {
+  background: $u-surface !important;
+  border: 1px solid $u-border;
+  border-radius: 6px;
+}
+
+pre code {
+  color: $u-text;
+}
+
+p code, li code, td code {
+  background: rgba($u-inspect, 0.08);
+  color: $u-inspect;
+  padding: 0.08em 0.36em;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+
+.u-type {
+  background: rgba($u-axiom, 0.12) !important;
+  color: $u-axiom !important;
+  border: 1px solid rgba($u-axiom, 0.32);
+}
+
+table {
+  font-size: 0.92rem;
+}
+
+thead {
+  border-bottom: 2px solid $u-border;
+}
+
+thead th {
+  color: $u-inspect;
+  font-family: $font-family-monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+}
+
+blockquote {
+  border-left: 3px solid $u-axiom;
+  color: $u-muted;
+  background: $u-surface;
+  padding: 0.6rem 1rem;
+  border-radius: 0 6px 6px 0;
+}
+
+.navbar-brand {
+  font-family: $font-family-monospace;
+  font-weight: 600;
+}

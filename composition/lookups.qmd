@@ -1,0 +1,87 @@
+---
+title: "Lookups & Performance"
+---
+
+These patterns are not micro-optimizations for their own sake. Each removes a
+redundant operation or a copy that the clearer form makes obvious — the fast
+path and the readable path are the same path.
+
+## One lookup, not two
+
+`HasComponent` followed by the indexer is two lookups for one answer.
+`TryGetComponent` is one.
+
+```{.wrong}
+if (lookup.HasComponent(e)) { var v = lookup[e]; Use(v); }
+```
+
+```{.right}
+if (lookup.TryGetComponent(e, out var v)) { Use(v); }
+```
+
+## Reference, not copy
+
+Assigning `ValueRW` into a local copies the struct, mutates the copy, then copies
+it back. A `ref` binding mutates in place.
+
+```{.wrong}
+var d = debug.ValueRW; d.Field = x; debug.ValueRW = d;
+```
+
+```{.right}
+ref var d = ref debug.ValueRW; d.Field = x;
+```
+
+## The unsafe lookup write-back
+
+{{< unity-type UnsafeComponentLookup >}} has no `GetRefRW`. It is read-modify-write
+through the indexer, and it is constructed via the `SystemState` extension —
+which means it cannot be built from inside `exec`.
+
+```{.right}
+var v = lookup[e];
+v.Field = x;
+lookup[e] = v;
+```
+
+## Squared length for comparisons
+
+Comparing distances does not need a square root. `lengthsq` is the same decision
+without the transcendental.
+
+```{.right}
+if (Unity.Mathematics.math.lengthsq(delta) < radius * radius) { InRange(); }
+```
+
+## Swap-back removal in reverse loops
+
+`RemoveAt(i)` shifts every later element; `RemoveAtSwapBack(i)` is O(1). In a
+reverse-iteration loop where order does not matter, it is strictly better.
+
+```{.right}
+for (var i = list.Length - 1; i >= 0; i--) {
+    if (ShouldRemove(list[i])) list.RemoveAtSwapBack(i);
+}
+```
+
+## Cache the query
+
+::: {.gotcha title="Rebuilding an EntityQuery every frame is waste"}
+`CreateEntityQuery` in `OnUpdate` rebuilds the query each frame. Build it once in
+`OnCreate`, store it as a field, and reuse it.
+:::
+
+## The disposal that gets dropped
+
+Iterating a `ToEntityArray` directly in `foreach` leaks the array — nothing
+disposes it. Name the array, index it, dispose it.
+
+```{.wrong}
+foreach (var e in query.ToEntityArray(Allocator.Temp)) { Use(e); }
+```
+
+```{.right}
+var arr = query.ToEntityArray(Allocator.Temp);
+for (var i = 0; i < arr.Length; i++) { Use(arr[i]); }
+arr.Dispose();
+```

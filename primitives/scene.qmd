@@ -1,0 +1,105 @@
+---
+title: "Scene Inspection"
+---
+
+Scene context is the most common source of confusion, because a Unity DOTS
+project has two kinds of scene that look alike and behave differently. Inspect
+which one you are in before you touch anything.
+
+## Two scenes, one invariant
+
+::: {.axiom title="The parent scene holds pointers; the subscene holds authoring"}
+The parent `.unity` holds lightweight GameObjects plus a {{< unity-type SubScene >}}
+component referencing the subscene asset. The subscene `.unity` holds the
+authoring GameObjects that bake into entities. A new GameObject lands in the
+*active* scene, which is the parent unless you change it.
+:::
+
+Always report the active scene path and whether the target lives in the parent
+or the subscene before changing scene objects.
+
+```{.exec name="Report active scene and roots"}
+var scene = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene();
+var sb = new System.Text.StringBuilder();
+sb.AppendLine($"Scene: {scene.name} | {scene.path} | roots={scene.rootCount}");
+var roots = scene.GetRootGameObjects();
+var i = 0;
+while (i < roots.Length) {
+    sb.AppendLine($"  [{i}] {roots[i].name} (children:{roots[i].transform.childCount})");
+    i++;
+}
+return sb.ToString();
+```
+
+## Find the SubScene component
+
+The component is {{< unity-type SubScene >}} from `Unity.Scenes`, not the
+`Unity.Entities` type of a similar name. Verify which one before reasoning about
+baking.
+
+```{.exec name="Locate the SubScene"}
+var roots = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().GetRootGameObjects();
+var i = 0;
+while (i < roots.Length) {
+    var sub = roots[i].GetComponent<Unity.Scenes.SubScene>();
+    if (sub != null) {
+        var path = sub.SceneAsset != null ? UnityEditor.AssetDatabase.GetAssetPath(sub.SceneAsset) : "n/a";
+        return "SubScene on: " + roots[i].name + " -> " + path;
+    }
+    i++;
+}
+return "No SubScene found";
+```
+
+## Inspect a subscene without leaking it
+
+Open the subscene additively, read it, then close it. Never open it `Single`
+unless you mean to replace the whole context. After any additive inspection,
+reopen the parent so the next mutation lands where you expect.
+
+```{.exec name="Open additive, read, close"}
+var path = "Assets/Scenes/X/Subscene_ECS.unity";
+var sub = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+    path, UnityEditor.SceneManagement.OpenSceneMode.Additive);
+var roots = sub.GetRootGameObjects();
+var sb = new System.Text.StringBuilder();
+sb.AppendLine($"SubScene: {sub.name} | roots={sub.rootCount}");
+var i = 0;
+while (i < roots.Length) { sb.AppendLine($"  [{i}] {roots[i].name}"); i++; }
+UnityEditor.SceneManagement.EditorSceneManager.CloseScene(sub, false);
+return sb.ToString();
+```
+
+## Creating inside a subscene
+
+Because `new GameObject()` targets the active scene, creating an authoring
+object inside a subscene requires setting the subscene active first, then
+restoring. This mutation is bracketed by a cleanup inspect that removes any
+misplaced object from a prior attempt — which makes it idempotent.
+
+```{.exec name="Create in subscene, idempotently"}
+var em = UnityEditor.SceneManagement.EditorSceneManager;
+var parent = em.GetActiveScene();
+var roots = parent.GetRootGameObjects();
+var i = 0;
+while (i < roots.Length) {
+    if (roots[i].name == "Authoring") { UnityEngine.Object.DestroyImmediate(roots[i]); break; }
+    i++;
+}
+var sub = em.OpenScene("Assets/Scenes/X/Subscene_ECS.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
+em.SetActiveScene(sub);
+var go = new UnityEngine.GameObject("Authoring");
+em.SetActiveScene(parent);
+em.SaveScene(sub);
+em.CloseScene(sub, false);
+return "created in subscene, saved";
+```
+
+::: {.failure title="DeserializeWorld can only be used on a completely empty World"}
+This means an additive subscene leaked into play mode. Stop play, reopen the
+parent with `Single`, clear the console, and re-enter play.
+:::
+
+```{.cli name="Recover from a leaked additive scene"}
+echo 'UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/X/Main.unity", UnityEditor.SceneManagement.OpenSceneMode.Single);' | unity-cli exec
+```

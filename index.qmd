@@ -1,0 +1,81 @@
+---
+title: "Unity-CLI Codex"
+subtitle: "Driving the Unity Editor as a total, composable algebra"
+---
+
+This codex treats `unity-cli` not as a bag of commands but as a small algebra.
+Every safe interaction with the Unity Editor is a composition of three
+primitives, and every dangerous one is a primitive used out of order.
+
+Pinned to `unity-cli` **v{{< unity-version >}}**.
+
+## The three primitives
+
+::: {.axiom title="Inspect → Mutate → Verify"}
+A session is a sequence of effects bracketed by observation. You may not mutate
+state you have not inspected, and you may not claim success for state you have
+not verified.
+:::
+
+`Inspect` reads the world and is referentially transparent: running it twice
+changes nothing. `Mutate` changes the world and must be bracketed. `Verify`
+reads the world and answers a single yes/no question with no false greens.
+
+| Primitive | Color | Nature | Examples |
+|---|---|---|---|
+| Inspect | cyan | pure, repeatable | `console`, `status`, an `exec` that only reads |
+| Mutate | amber | effectful, bracketed | `editor play`, an `exec` that creates a GameObject |
+| Verify | green | total, decisive | entity count, compile state, object-at-path |
+
+## The composition law
+
+Everything reduces to this bracket. Reparenting a baked entity, fixing a job
+race, wiring an EntityLink — all of them are the same shape:
+
+```{.cli name="The universal bracket"}
+unity-cli status                 # Inspect: where am I, am I compiling?
+unity-cli console --type error   # Inspect: is the board clean before I start?
+# ... Mutate ...
+unity-cli console --type error   # Verify: still clean?
+# ... Verify the specific effect (entity count, object exists, etc.) ...
+```
+
+When a primitive is used out of order, the failure is structural, not
+accidental. Creating an entity by hand instead of through baking is a `Mutate`
+masquerading as a `Verify`: it makes the board look green without proving the
+pipeline works.
+
+::: {.failure title="Entity count zero is a hard failure"}
+A subscene that bakes to zero entities is not "almost working." Do not paper
+over it with manually-created entities or a passing test. Zero is red. Red is
+not done.
+:::
+
+## What this codex is built from
+
+The whole project is four orthogonal layers, each doing exactly one thing:
+
+| Layer | Lives in | Responsibility |
+|---|---|---|
+| Behavior | `_extensions/unity-cli/*.lua` | Render-time enforcement of the algebra |
+| Presentation | `theme/*.scss` | Color-as-semantics, typography |
+| Data | `data/types.yml` | The type registry |
+| Content | `*.qmd` | This codex |
+
+Delete any leaf and the rest still stands. The `exec` primitive below is
+rendered by a Lua filter that also checks one invariant for you.
+
+## A primitive renders itself
+
+When you write an `exec` block, the behavior layer wraps it with its
+invocation and checks that it is **total** — that it returns a value. A block
+without a `return` is marked partial, because an `exec` that returns nothing
+tells you nothing.
+
+```{.exec name="Read the active scene" usings="UnityEditor.SceneManagement"}
+var scene = EditorSceneManager.GetActiveScene();
+return $"{scene.name} | {scene.path} | roots={scene.rootCount}";
+```
+
+Start with the [Axioms](axioms/algebra.qmd). Reach for the
+[Recipes](recipes/runner.qmd) when you have a real task.

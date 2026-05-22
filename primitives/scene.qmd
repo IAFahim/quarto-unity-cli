@@ -58,7 +58,7 @@ unless you mean to replace the whole context. After any additive inspection,
 reopen the parent so the next mutation lands where you expect.
 
 ```{.exec name="Open additive, read, close"}
-var path = "Assets/Scenes/X/Subscene_ECS.unity";
+var path = "Assets/Scenes/Main Subscene.unity";
 var sub = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
     path, UnityEditor.SceneManagement.OpenSceneMode.Additive);
 var roots = sub.GetRootGameObjects();
@@ -78,20 +78,19 @@ restoring. This mutation is bracketed by a cleanup inspect that removes any
 misplaced object from a prior attempt — which makes it idempotent.
 
 ```{.exec name="Create in subscene, idempotently"}
-var em = UnityEditor.SceneManagement.EditorSceneManager;
-var parent = em.GetActiveScene();
+var parent = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene();
 var roots = parent.GetRootGameObjects();
 var i = 0;
 while (i < roots.Length) {
     if (roots[i].name == "Authoring") { UnityEngine.Object.DestroyImmediate(roots[i]); break; }
     i++;
 }
-var sub = em.OpenScene("Assets/Scenes/X/Subscene_ECS.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
-em.SetActiveScene(sub);
+var sub = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/Main Subscene.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
+UnityEditor.SceneManagement.EditorSceneManager.SetActiveScene(sub);
 var go = new UnityEngine.GameObject("Authoring");
-em.SetActiveScene(parent);
-em.SaveScene(sub);
-em.CloseScene(sub, false);
+UnityEditor.SceneManagement.EditorSceneManager.SetActiveScene(parent);
+UnityEditor.SceneManagement.EditorSceneManager.SaveScene(sub);
+UnityEditor.SceneManagement.EditorSceneManager.CloseScene(sub, false);
 return "created in subscene, saved";
 ```
 
@@ -101,5 +100,8 @@ parent with `Single`, clear the console, and re-enter play.
 :::
 
 ```{.cli name="Recover from a leaked additive scene"}
-echo 'UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/X/Main.unity", UnityEditor.SceneManagement.OpenSceneMode.Single);' | unity-cli exec
+cat << 'CSHARP' | unity-cli exec
+UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/Scene.unity", UnityEditor.SceneManagement.OpenSceneMode.Single);
+return "reopened parent";
+CSHARP
 ```

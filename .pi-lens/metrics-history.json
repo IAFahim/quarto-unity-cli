@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "files": {
+    "__v2__/unity-runner-v2/_extensions/unity-runner/unity-runner.js": {
+      "latest": {
+        "commit": "01ff492",
+        "timestamp": "2026-05-22T07:24:21.929Z",
+        "mi": 11.9,
+        "cognitive": 441,
+        "nesting": 5,
+        "lines": 541,
+        "maxCyclomatic": 326,
+        "entropy": 6.13
+      },
+      "history": [
+        {
+          "commit": "01ff492",
+          "timestamp": "2026-05-22T07:24:21.929Z",
+          "mi": 11.9,
+          "cognitive": 441,
+          "nesting": 5,
+          "lines": 541,
+          "maxCyclomatic": 326,
+          "entropy": 6.13
+        }
+      ],
+      "trend": "stable"
+    }
+  },
+  "capturedAt": "2026-05-22T07:24:26.930Z"
+}

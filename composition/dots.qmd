@@ -55,7 +55,7 @@ return n > 0 ? $"OK: {n}" : "FAIL: TransformUsageFlags likely None";
 fail for unmanaged systems. Verify by effect: query the entities the system
 should have changed.
 
-```{.exec name="Verify by effect, not by system list" usings="Unity.Entities"}
+```{.exec name="Verify by effect, not by system list" usings="Unity.Entities,Unity.Transforms"}
 var em = World.DefaultGameObjectInjectionWorld.EntityManager;
 var q = em.CreateEntityQuery(typeof(LocalToWorld));
 return "world entities touched by transforms: " + q.CalculateEntityCount();

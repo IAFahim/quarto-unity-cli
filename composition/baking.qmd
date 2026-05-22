@@ -33,17 +33,18 @@ is `false`, and every stale entity reports `Version=1`. That is unremapped
 entity storage, not a logic bug.
 :::
 
-```{.exec name="Detect stale entity references" usings="Unity.Entities,BovineLabs.Core.Iterators"}
+```{.exec name="Verify entity references are remapped" usings="Unity.Entities,BovineLabs.Timeline.EntityLinks.Data"}
 var em = World.DefaultGameObjectInjectionWorld.EntityManager;
 var q = em.CreateEntityQuery(typeof(EntityLinkSource));
 var entities = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-var report = "no links found";
+var report = "no link sources found";
 var i = 0;
 while (i < entities.Length) {
-    if (em.HasBuffer<EntityLink>(entities[i])) {
-        var map = em.GetBuffer<EntityLink>(entities[i]).AsHashMap<EntityLink, ushort, Entity>();
-        if (map.TryGetValue(0, out var target)) {
-            report = $"key 0 -> exists={em.Exists(target)} version={target.Version}";
+    if (em.HasBuffer<EntityLinkEntry>(entities[i])) {
+        var buf = em.GetBuffer<EntityLinkEntry>(entities[i]);
+        if (buf.Length > 0) {
+            var entry = buf[0];
+            report = $"key={entry.Key} target.exists={em.Exists(entry.Target)} target.version={entry.Target.Version}";
             break;
         }
     }

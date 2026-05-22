@@ -1,0 +1,4 @@
+{
+  "signature": "bridge.py::Unresolved from this turn — bridge.py:\n🔴 STOP — 1 issue(s) must be fixed:\n  Import \"websockets\" could not be resolved",
+  "sessionId": "lens-mpgjdkli-f45935b4"
+}

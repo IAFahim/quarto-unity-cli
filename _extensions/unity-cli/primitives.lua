@@ -1,73 +1,29 @@
+-- ═══════════════════════════════════════════════════════════
+-- unity-cli extension — merged primitives + v2 runner
+-- ═══════════════════════════════════════════════════════════
+
 -- ─── Runner State ──────────────────────────────────────────
-local runner_dep_added = false
-local block_index = 0
-local has_runner_blocks = false
+local dep_injected = false
+local block_counter = 0
+local has_blocks = false
+local name_to_id = {}
 
-local function escape_html(text)
-  return text
-    :gsub("&", "&amp;")
-    :gsub("<", "&lt;")
-    :gsub(">", "&gt;")
-    :gsub('"', "&quot;")
-end
+-- ─── SVG Icons ─────────────────────────────────────────────
+local ICON_PLAY  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>'
+local ICON_STOP  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>'
+local ICON_CLEAR = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+local ICON_COPY  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>'
+local ICON_CLIP  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>'
+local ICON_FOLD  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>'
+local ICON_CHAIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21" fill="currentColor"/><line x1="19" y1="3" x2="19" y2="21"/></svg>'
 
-local function ensure_runner_dep()
-  if runner_dep_added then return end
-  quarto.doc.add_html_dependency({
-    name = "unity-runner",
-    version = "1.0.0",
-    stylesheets = { "unity-runner.css" },
-    scripts = { { path = "unity-runner.js", afterBody = true } }
-  })
-  runner_dep_added = true
-end
-
-local function wrap_with_runner(content_el, exec_type, label)
-  ensure_runner_dep()
-  has_runner_blocks = true
-
-  block_index = block_index + 1
-  local block_id = "ub-" .. block_index
-
-  local toolbar = pandoc.RawBlock("html", string.format(
-    [[<div class="unity-toolbar">
-  <span class="unity-label">%s</span>
-  <div class="unity-controls">
-    <span class="unity-elapsed" id="%s-elapsed"></span>
-    <button class="unity-btn unity-copy-btn" data-target="%s" title="Copy code">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-    </button>
-    <button class="unity-btn unity-run-btn" data-target="%s" title="Run">
-      <svg class="unity-icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-      <svg class="unity-icon-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-    </button>
-    <button class="unity-btn unity-clear-btn" data-target="%s" title="Clear output">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-</div>]],
-    escape_html(label), block_id, block_id, block_id, block_id
-  ))
-
-  local output_panel = pandoc.RawBlock("html", string.format(
-    [[<pre class="unity-output" id="%s-output"></pre>]],
-    block_id
-  ))
-
-  return pandoc.Div(
-    { toolbar, content_el, output_panel },
-    pandoc.Attr(block_id, { "unity-block" }, { ["data-exec-type"] = exec_type })
-  )
-end
-
-
--- ─── Card Helpers ─────────────────────────────────────────
+-- ─── Helpers ───────────────────────────────────────────────
 local function has(classes, name)
   return classes:includes(name)
 end
 
-local function escape(text)
-  return (text:gsub('[&<>]', { ['&'] = '&amp;', ['<'] = '&lt;', ['>'] = '&gt;' }))
+local function esc(text)
+  return (text:gsub('[&<>"]', { ['&'] = '&amp;', ['<'] = '&lt;', ['>'] = '&gt;', ['"'] = '&quot;' }))
 end
 
 local function tag(label, kind)
@@ -78,55 +34,193 @@ local function is_total(text)
   return text:match('%f[%a]return%f[%A]') ~= nil
 end
 
+local function attr_val(attrs, key)
+  if attrs[key] ~= nil and attrs[key] ~= '' then
+    return ' data-' .. key .. '="' .. esc(attrs[key]) .. '"'
+  end
+  return ''
+end
 
--- ─── exec Block ──────────────────────────────────────────
+-- ─── Dependency Injection ──────────────────────────────────
+local function ensure_deps()
+  if dep_injected then return end
+  quarto.doc.add_html_dependency({
+    name = "unity-runner",
+    version = "2.0.0",
+    stylesheets = { "unity-runner.css" },
+    scripts = { { path = "unity-runner.js", afterBody = true } },
+  })
+  dep_injected = true
+end
+
+
+-- ═════════════════════════════════════════════════════════════
+-- exec blocks  ({.exec name="..." usings="..."})
+-- ═════════════════════════════════════════════════════════════
 local function exec_card(block)
   local name = block.attributes['name'] or 'exec'
-  local usings = block.attributes['usings']
+  local usings = block.attributes['usings'] or ''
   local total = is_total(block.text)
   local state = total and 'total' or 'partial'
+
   if not total then
     io.stderr:write('[unity-cli] PARTIAL exec block (no return): ' .. name .. '\n')
   end
 
-  -- Build the shell command the runner will execute
-  local run_code
-  if usings then
-    run_code = "cat << 'CSHARP' | unity-cli exec --usings " .. usings .. "\n" .. block.text .. "\nCSHARP"
-  else
-    run_code = "cat << 'CSHARP' | unity-cli exec\n" .. block.text .. "\nCSHARP"
+  ensure_deps()
+  has_blocks = true
+  block_counter = block_counter + 1
+  local bid = "ub-" .. block_counter
+
+  -- Card head
+  local head_html =
+    '<div class="u-card-head">' .. tag('exec', 'inspect') ..
+    '<span class="u-card-name">' .. esc(name) .. '</span>' ..
+    (total and tag('total', 'verify') or tag('partial', 'fail')) .. '</div>'
+
+  -- Code block (visible, syntax-highlighted C#)
+  local code = pandoc.CodeBlock(block.text, pandoc.Attr('', { 'csharp' }))
+
+  -- Card foot
+  local foot_html = '<div class="u-card-foot"><code>CSHARP</code></div>'
+
+  -- Runner data attributes
+  local data_attrs =
+    'data-kind="exec"' ..
+    ' data-intent="run"' ..
+    attr_val(block.attributes, 'depends') ..
+    attr_val(block.attributes, 'timeout')
+
+  if usings ~= '' then
+    data_attrs = data_attrs .. ' data-usings="' .. esc(usings) .. '"'
   end
 
-  local head = pandoc.RawBlock('html',
-    '<div class="u-card-head">' .. tag('exec', 'inspect') ..
-    '<span class="u-card-name">' .. escape(name) .. '</span>' ..
-    (total and tag('total', 'verify') or tag('partial', 'fail')) .. '</div>')
-  local code = pandoc.CodeBlock(block.text, pandoc.Attr('', { 'csharp' }))
-  local foot = pandoc.RawBlock('html', '<div class="u-card-foot"><code>CSHARP</code></div>')
+  -- Toolbar
+  local toolbar = string.format(
+    [[<div class="ur-toolbar">
+  <div class="ur-toolbar-left"><span class="ur-block-label">%s</span></div>
+  <div class="ur-toolbar-right">
+    <span class="ur-elapsed" id="%s-elapsed"></span>
+    <button class="ur-btn ur-copy-code-btn" data-target="%s" title="Copy code">%s</button>
+    <button class="ur-btn ur-copy-output-btn" data-target="%s" title="Copy output" style="display:none">%s</button>
+    <button class="ur-btn ur-fold-btn" data-target="%s" title="Toggle output" style="display:none">%s</button>
+    <button class="ur-btn ur-from-here-btn" data-target="%s" title="Run from here">%s</button>
+    <button class="ur-btn ur-run-btn" data-target="%s" title="Run">
+      <span class="ur-icon-play">%s</span><span class="ur-icon-stop">%s</span>
+    </button>
+    <button class="ur-btn ur-clear-btn" data-target="%s" title="Clear">%s</button>
+  </div>
+</div>]],
+    esc(name), bid,
+    bid, ICON_COPY,
+    bid, ICON_CLIP,
+    bid, ICON_FOLD,
+    bid, ICON_CHAIN,
+    bid, ICON_PLAY, ICON_STOP,
+    bid, ICON_CLEAR
+  )
 
-  local card = pandoc.Div({ head, code, foot }, pandoc.Attr('', { 'u-card', 'u-exec', state }))
-  local wrapped = wrap_with_runner(card, "exec", name)
+  -- Output panel
+  local output_panel = string.format(
+    [[<div class="ur-output-panel" id="%s-panel"><pre class="ur-output" id="%s-output"></pre></div>]],
+    bid, bid
+  )
 
-  -- Hidden element with the actual runnable shell command
-  local hidden = pandoc.RawBlock('html', '<pre class="unity-run-code" style="display:none">' .. escape(run_code) .. '</pre>')
-  table.insert(wrapped.content, hidden)
-  return wrapped
+  if block.attributes['name'] then
+    name_to_id[block.attributes['name']] = bid
+  end
+
+  -- Open wrapper, toolbar, card, output panel, close wrapper
+  return {
+    pandoc.RawBlock("html", string.format('<div id="%s" class="ur-block" %s>', bid, data_attrs)),
+    pandoc.RawBlock("html", toolbar),
+    pandoc.Div(
+      { pandoc.RawBlock("html", head_html), code, pandoc.RawBlock("html", foot_html) },
+      pandoc.Attr('', { 'u-card', 'u-exec', state })
+    ),
+    pandoc.RawBlock("html", output_panel),
+    pandoc.RawBlock("html", '</div>'),
+  }
 end
 
 
--- ─── cli Block ───────────────────────────────────────────
+-- ═════════════════════════════════════════════════════════════
+-- cli blocks  ({.cli name="..."})
+-- ═════════════════════════════════════════════════════════════
 local function cli_card(block)
   local name = block.attributes['name'] or 'cli'
-  local head = pandoc.RawBlock('html',
+
+  ensure_deps()
+  has_blocks = true
+  block_counter = block_counter + 1
+  local bid = "ub-" .. block_counter
+
+  -- Card head
+  local head_html =
     '<div class="u-card-head">' .. tag('cli', 'mutate') ..
-    '<span class="u-card-name">' .. escape(name) .. '</span></div>')
+    '<span class="u-card-name">' .. esc(name) .. '</span></div>'
+
+  -- Code block (visible, bash-highlighted)
   local code = pandoc.CodeBlock(block.text, pandoc.Attr('', { 'bash' }))
-  local card = pandoc.Div({ head, code }, pandoc.Attr('', { 'u-card', 'u-cli' }))
-  return wrap_with_runner(card, "cli", name)
+
+  -- Runner data attributes
+  local data_attrs =
+    'data-kind="cli"' ..
+    ' data-intent="run"' ..
+    attr_val(block.attributes, 'depends') ..
+    attr_val(block.attributes, 'timeout')
+
+  -- Toolbar
+  local toolbar = string.format(
+    [[<div class="ur-toolbar">
+  <div class="ur-toolbar-left"><span class="ur-block-label">%s</span></div>
+  <div class="ur-toolbar-right">
+    <span class="ur-elapsed" id="%s-elapsed"></span>
+    <button class="ur-btn ur-copy-code-btn" data-target="%s" title="Copy code">%s</button>
+    <button class="ur-btn ur-copy-output-btn" data-target="%s" title="Copy output" style="display:none">%s</button>
+    <button class="ur-btn ur-fold-btn" data-target="%s" title="Toggle output" style="display:none">%s</button>
+    <button class="ur-btn ur-from-here-btn" data-target="%s" title="Run from here">%s</button>
+    <button class="ur-btn ur-run-btn" data-target="%s" title="Run">
+      <span class="ur-icon-play">%s</span><span class="ur-icon-stop">%s</span>
+    </button>
+    <button class="ur-btn ur-clear-btn" data-target="%s" title="Clear">%s</button>
+  </div>
+</div>]],
+    esc(name), bid,
+    bid, ICON_COPY,
+    bid, ICON_CLIP,
+    bid, ICON_FOLD,
+    bid, ICON_CHAIN,
+    bid, ICON_PLAY, ICON_STOP,
+    bid, ICON_CLEAR
+  )
+
+  -- Output panel
+  local output_panel = string.format(
+    [[<div class="ur-output-panel" id="%s-panel"><pre class="ur-output" id="%s-output"></pre></div>]],
+    bid, bid
+  )
+
+  if block.attributes['name'] then
+    name_to_id[block.attributes['name']] = bid
+  end
+
+  return {
+    pandoc.RawBlock("html", string.format('<div id="%s" class="ur-block" %s>', bid, data_attrs)),
+    pandoc.RawBlock("html", toolbar),
+    pandoc.Div(
+      { pandoc.RawBlock("html", head_html), code },
+      pandoc.Attr('', { 'u-card', 'u-cli' })
+    ),
+    pandoc.RawBlock("html", output_panel),
+    pandoc.RawBlock("html", '</div>'),
+  }
 end
 
 
--- ─── Wrong/Right Blocks ──────────────────────────────────
+-- ═════════════════════════════════════════════════════════════
+-- wrong/right blocks  (no runner UI)
+-- ═════════════════════════════════════════════════════════════
 local function labeled_code(block, kind, label)
   local lang = block.attributes['lang'] or 'csharp'
   local head = pandoc.RawBlock('html', '<div class="u-code-label u-code-' .. kind .. '">' .. label .. '</div>')
@@ -135,7 +229,9 @@ local function labeled_code(block, kind, label)
 end
 
 
--- ─── CodeBlock Filter ────────────────────────────────────
+-- ═════════════════════════════════════════════════════════════
+-- CodeBlock filter
+-- ═════════════════════════════════════════════════════════════
 function CodeBlock(block)
   if has(block.classes, 'exec') then return exec_card(block) end
   if has(block.classes, 'cli') then return cli_card(block) end
@@ -145,12 +241,14 @@ function CodeBlock(block)
 end
 
 
--- ─── Callout Divs ────────────────────────────────────────
+-- ═════════════════════════════════════════════════════════════
+-- Callout Divs  (no runner UI)
+-- ═════════════════════════════════════════════════════════════
 local callouts = {
-  axiom = { label = 'AXIOM', kind = 'axiom' },
-  gotcha = { label = 'GOTCHA', kind = 'gotcha' },
+  axiom   = { label = 'AXIOM',       kind = 'axiom' },
+  gotcha  = { label = 'GOTCHA',      kind = 'gotcha' },
   failure = { label = 'HARD FAILURE', kind = 'fail' },
-  verify = { label = 'VERIFY', kind = 'verify' },
+  verify  = { label = 'VERIFY',      kind = 'verify' },
 }
 
 function Div(div)
@@ -159,7 +257,7 @@ function Div(div)
       local title = div.attributes['title']
       local head = pandoc.RawBlock('html',
         '<div class="u-callout-head">' .. tag(spec.label, spec.kind) ..
-        (title and ('<span class="u-callout-title">' .. escape(title) .. '</span>') or '') .. '</div>')
+        (title and ('<span class="u-callout-title">' .. esc(title) .. '</span>') or '') .. '</div>')
       local body = pandoc.Div(div.content, pandoc.Attr('', { 'u-callout-body' }))
       return pandoc.Div({ head, body }, pandoc.Attr('', { 'u-callout', 'u-' .. spec.kind }))
     end
@@ -168,22 +266,32 @@ function Div(div)
 end
 
 
--- ─── Pandoc Final (inject status bar) ────────────────────
+-- ═════════════════════════════════════════════════════════════
+-- Pandoc final — inject status bar + block registry
+-- ═════════════════════════════════════════════════════════════
 function Pandoc(doc)
-  if not has_runner_blocks then return nil end
+  if not has_blocks then return nil end
 
-  local status_bar = pandoc.RawBlock("html", [[<div id="unity-status-bar">
-  <div class="unity-status-left">
-    <span class="unity-status-dot" id="unity-dot"></span>
-    <span class="unity-status-text" id="unity-status-text">Disconnected</span>
+  local reg_parts = {}
+  for n, id in pairs(name_to_id) do
+    table.insert(reg_parts, string.format('"%s":"%s"', n, id))
+  end
+  local reg_json = "{" .. table.concat(reg_parts, ",") .. "}"
+
+  local status_bar = pandoc.RawBlock("html", string.format(
+    [[<div id="ur-status-bar">
+  <div class="ur-status-left">
+    <span class="ur-status-dot" id="ur-dot"></span>
+    <span class="ur-status-text" id="ur-status-text">Disconnected</span>
   </div>
-  <div class="unity-status-right">
-    <button class="unity-btn" id="unity-run-all-btn" disabled>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-      Run All
-    </button>
+  <div class="ur-status-right">
+    <span class="ur-kbd-hint"><kbd>Ctrl</kbd><kbd>Enter</kbd> run · <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Enter</kbd> run all</span>
+    <button class="ur-btn" id="ur-run-all-btn" disabled>%s Run All</button>
   </div>
-</div>]])
+</div>
+<script type="application/json" id="ur-block-registry">%s</script>]],
+    ICON_PLAY, reg_json
+  ))
 
   table.insert(doc.blocks, 1, status_bar)
   return doc

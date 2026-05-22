@@ -35,9 +35,10 @@ without waiting, then verify runtime state with a separate `exec`.
 A clean console is necessary, not sufficient. The task's actual effect must be
 verified by name. For ECS work that almost always means an entity count.
 
-```{.exec name="Verify baking produced entities" usings="Unity.Entities"}
+```{.exec name="Verify baking produced entities" usings="Unity.Entities,Unity.Transforms"}
 var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-var q = em.CreateEntityQuery(typeof(LocalToWorld));
+var t = System.Type.GetType("Unity.Transforms.LocalToWorld, Unity.Transforms");
+var q = em.CreateEntityQuery(t);
 var n = q.CalculateEntityCount();
 return n > 0 ? $"OK: {n} entities" : "FAIL: zero entities";
 ```

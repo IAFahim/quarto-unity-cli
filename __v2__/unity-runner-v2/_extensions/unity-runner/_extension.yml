@@ -1,0 +1,6 @@
+title: Unity Runner
+author: unity-runner
+version: 2.0.0
+contributes:
+  filters:
+    - unity-runner.lua

@@ -104,13 +104,10 @@ async def execute_block(websocket, live, block_id, code, kind, usings, timeout_s
 
     except Exception as exc:
         live.pop(block_id, None)
-        journal("run_error", id=block_id, error=str(exc), exc_type=type(exc).__name__)
-        try:
-            await websocket.send(json.dumps({
-                "type": "error", "id": block_id, "message": f"bridge: {exc}",
-            }))
-        except Exception:
-            pass
+        journal("run_error", id=block_id, error=str(exc))
+        await websocket.send(json.dumps({
+            "type": "error", "id": block_id, "message": f"bridge: {exc}",
+        }))
 
 
 async def terminate(live, block_id):

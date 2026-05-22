@@ -1,17 +1,6 @@
 {
-  "files": {
-    "_extensions/unity-cli/unity-runner.css": {
-      "modifiedRanges": [
-        {
-          "start": 1,
-          "end": 481
-        }
-      ],
-      "importsChanged": false,
-      "lastEdit": "2026-05-22T09:07:33.366Z"
-    }
-  },
+  "files": {},
   "turnCycles": 0,
   "maxCycles": 3,
-  "lastUpdated": "2026-05-22T09:07:33.366Z"
+  "lastUpdated": "2026-05-22T15:52:12.552Z"
 }
